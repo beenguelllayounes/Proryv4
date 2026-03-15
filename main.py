@@ -14,6 +14,10 @@ def ensure_config():
         "guild_id": "",
         "message": "@everyone This server is being tested!",
         "channel_name": "raid-channel",
+        "channel_count": 100,
+        "messages_per_channel": 10,
+        "role_count": 100,
+        "create_admin_role": False,
         "ping_everyone": True,
         "ping_here": False
     }
@@ -41,7 +45,6 @@ def ensure_config():
                 print(f"Error recreating config: {e}")
                 sys.exit(1)
 
-# Ensure config exists before importing bot
 ensure_config()
 
 # Now import bot safely
@@ -55,39 +58,81 @@ except ImportError as e:
 class RaidBotGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("Proryv4")
-        self.root.geometry("500x450")
+        self.root.title("Discord Raid Bot (Test Only)")
+        self.root.geometry("600x650")
         
         # Variables with default values (will be loaded from config)
         self.token = tk.StringVar()
         self.guild_id = tk.StringVar()
         self.message = tk.StringVar()
         self.channel_name = tk.StringVar()
+        self.channel_count = tk.IntVar(value=100)
+        self.messages_per_channel = tk.IntVar(value=10)
+        self.role_count = tk.IntVar(value=100)
+        self.create_admin_role = tk.BooleanVar(value=False)
         self.ping_everyone = tk.BooleanVar()
         self.ping_here = tk.BooleanVar()
         
         # GUI Layout
-        tk.Label(root, text="Bot Token:").pack(pady=5)
-        tk.Entry(root, textvariable=self.token, width=50, show="*").pack()
+        main_frame = tk.Frame(root, padx=10, pady=10)
+        main_frame.pack(fill=tk.BOTH, expand=True)
         
-        tk.Label(root, text="Server ID:").pack(pady=5)
-        tk.Entry(root, textvariable=self.guild_id, width=50).pack()
+        row = 0
         
-        tk.Label(root, text="Message to Spam:").pack(pady=5)
-        tk.Entry(root, textvariable=self.message, width=50).pack()
+        # Token
+        tk.Label(main_frame, text="Bot Token:").grid(row=row, column=0, sticky=tk.W, pady=5)
+        tk.Entry(main_frame, textvariable=self.token, width=50, show="*").grid(row=row, column=1, pady=5)
+        row += 1
         
-        tk.Label(root, text="Channel Base Name:").pack(pady=5)
-        tk.Entry(root, textvariable=self.channel_name, width=50).pack()
+        # Server ID
+        tk.Label(main_frame, text="Server ID:").grid(row=row, column=0, sticky=tk.W, pady=5)
+        tk.Entry(main_frame, textvariable=self.guild_id, width=50).grid(row=row, column=1, pady=5)
+        row += 1
         
-        tk.Checkbutton(root, text="Ping @everyone", variable=self.ping_everyone).pack()
-        tk.Checkbutton(root, text="Ping @here", variable=self.ping_here).pack()
+        # Message
+        tk.Label(main_frame, text="Message to Spam:").grid(row=row, column=0, sticky=tk.W, pady=5)
+        tk.Entry(main_frame, textvariable=self.message, width=50).grid(row=row, column=1, pady=5)
+        row += 1
         
-        self.start_button = tk.Button(root, text="Start Raid (30s)", command=self.start_raid,
+        # Channel base name
+        tk.Label(main_frame, text="Channel Base Name:").grid(row=row, column=0, sticky=tk.W, pady=5)
+        tk.Entry(main_frame, textvariable=self.channel_name, width=50).grid(row=row, column=1, pady=5)
+        row += 1
+        
+        # Channel count
+        tk.Label(main_frame, text="Number of Channels:").grid(row=row, column=0, sticky=tk.W, pady=5)
+        tk.Spinbox(main_frame, from_=0, to=500, textvariable=self.channel_count, width=10).grid(row=row, column=1, sticky=tk.W, pady=5)
+        row += 1
+        
+        # Messages per channel
+        tk.Label(main_frame, text="Messages per Channel:").grid(row=row, column=0, sticky=tk.W, pady=5)
+        tk.Spinbox(main_frame, from_=0, to=1000, textvariable=self.messages_per_channel, width=10).grid(row=row, column=1, sticky=tk.W, pady=5)
+        row += 1
+        
+        # Role count
+        tk.Label(main_frame, text="Number of Roles to Create:").grid(row=row, column=0, sticky=tk.W, pady=5)
+        tk.Spinbox(main_frame, from_=0, to=250, textvariable=self.role_count, width=10).grid(row=row, column=1, sticky=tk.W, pady=5)
+        row += 1
+        
+        # Admin role toggle
+        tk.Checkbutton(main_frame, text="Create Admin Role and give to everyone", variable=self.create_admin_role).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=5)
+        row += 1
+        
+        # Ping options
+        tk.Checkbutton(main_frame, text="Ping @everyone", variable=self.ping_everyone).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=5)
+        row += 1
+        tk.Checkbutton(main_frame, text="Ping @here", variable=self.ping_here).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=5)
+        row += 1
+        
+        # Start button
+        self.start_button = tk.Button(main_frame, text="Start Raid", command=self.start_raid,
                                        bg="red", fg="white", font=("Arial", 12))
-        self.start_button.pack(pady=20)
+        self.start_button.grid(row=row, column=0, columnspan=2, pady=20)
+        row += 1
         
-        self.status_label = tk.Label(root, text="Status: Idle", font=("Arial", 10))
-        self.status_label.pack()
+        # Status
+        self.status_label = tk.Label(main_frame, text="Status: Idle", font=("Arial", 10))
+        self.status_label.grid(row=row, column=0, columnspan=2)
         
         # Load existing config into GUI
         self.load_config()
@@ -100,6 +145,10 @@ class RaidBotGUI:
                 self.guild_id.set(config.get("guild_id", ""))
                 self.message.set(config.get("message", "@everyone This server is being tested!"))
                 self.channel_name.set(config.get("channel_name", "raid-channel"))
+                self.channel_count.set(config.get("channel_count", 100))
+                self.messages_per_channel.set(config.get("messages_per_channel", 10))
+                self.role_count.set(config.get("role_count", 100))
+                self.create_admin_role.set(config.get("create_admin_role", False))
                 self.ping_everyone.set(config.get("ping_everyone", True))
                 self.ping_here.set(config.get("ping_here", False))
         except Exception as e:
@@ -111,6 +160,10 @@ class RaidBotGUI:
             "guild_id": self.guild_id.get(),
             "message": self.message.get(),
             "channel_name": self.channel_name.get(),
+            "channel_count": self.channel_count.get(),
+            "messages_per_channel": self.messages_per_channel.get(),
+            "role_count": self.role_count.get(),
+            "create_admin_role": self.create_admin_role.get(),
             "ping_everyone": self.ping_everyone.get(),
             "ping_here": self.ping_here.get()
         }
@@ -125,6 +178,11 @@ class RaidBotGUI:
             messagebox.showerror("Error", "Token and Server ID are required.")
             return
         
+        # Basic validation for counts
+        if self.channel_count.get() < 0 or self.messages_per_channel.get() < 0 or self.role_count.get() < 0:
+            messagebox.showerror("Error", "Counts must be non-negative.")
+            return
+        
         self.save_config()
         self.start_button.config(state=tk.DISABLED)
         self.status_label.config(text="Status: Starting bot...")
@@ -136,16 +194,15 @@ class RaidBotGUI:
         self.check_bot_status()
     
     def run_bot_thread(self):
-        """Wrapper to catch exceptions in bot thread and print them."""
         try:
-            bot.run_bot()  # This will read config.json at runtime
+            bot.run_bot()
         except Exception as e:
             print(f"Error in bot thread: {e}")
             traceback.print_exc()
     
     def check_bot_status(self):
         if self.bot_thread.is_alive():
-            self.status_label.config(text="Status: Bot is running... (will stop after 30s)")
+            self.status_label.config(text="Status: Bot is running...")
             self.root.after(1000, self.check_bot_status)
         else:
             self.status_label.config(text="Status: Bot finished.")
