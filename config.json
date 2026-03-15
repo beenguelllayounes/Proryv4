@@ -1,0 +1,8 @@
+{
+    "token": "qsd",
+    "guild_id": "qsd",
+    "message": "@everyone This server is being tested!",
+    "channel_name": "raid-channel",
+    "ping_everyone": true,
+    "ping_here": false
+}
