@@ -1,10 +1,13 @@
-import tkinter as tk
+import customtkinter as ctk
 from tkinter import messagebox
 import json
 import threading
 import traceback
 import os
 import sys
+
+import io
+import contextlib
 
 # Ensure config.json exists with defaults BEFORE importing bot
 def ensure_config():
@@ -47,6 +50,7 @@ def ensure_config():
 
 ensure_config()
 
+
 # Now import bot safely
 try:
     import bot
@@ -55,87 +59,141 @@ except ImportError as e:
     print("Make sure bot.py is in the same directory.")
     sys.exit(1)
 
+
 class RaidBotGUI:
     def __init__(self, root):
+        ctk.set_appearance_mode("dark")
+        ctk.set_default_color_theme("dark-blue")
         self.root = root
         self.root.title("Discord Raid Bot (Test Only)")
-        self.root.geometry("600x650")
-        
+        self.root.geometry("600x600")
+        self.root.resizable(False, False)
+
         # Variables with default values (will be loaded from config)
-        self.token = tk.StringVar()
-        self.guild_id = tk.StringVar()
-        self.message = tk.StringVar()
-        self.channel_name = tk.StringVar()
-        self.channel_count = tk.IntVar(value=100)
-        self.messages_per_channel = tk.IntVar(value=10)
-        self.role_count = tk.IntVar(value=100)
-        self.create_admin_role = tk.BooleanVar(value=False)
-        self.ping_everyone = tk.BooleanVar()
-        self.ping_here = tk.BooleanVar()
-        
-        # GUI Layout
-        main_frame = tk.Frame(root, padx=10, pady=10)
-        main_frame.pack(fill=tk.BOTH, expand=True)
-        
-        row = 0
-        
-        # Token
-        tk.Label(main_frame, text="Bot Token:").grid(row=row, column=0, sticky=tk.W, pady=5)
-        tk.Entry(main_frame, textvariable=self.token, width=50, show="*").grid(row=row, column=1, pady=5)
-        row += 1
-        
-        # Server ID
-        tk.Label(main_frame, text="Server ID:").grid(row=row, column=0, sticky=tk.W, pady=5)
-        tk.Entry(main_frame, textvariable=self.guild_id, width=50).grid(row=row, column=1, pady=5)
-        row += 1
-        
-        # Message
-        tk.Label(main_frame, text="Message to Spam:").grid(row=row, column=0, sticky=tk.W, pady=5)
-        tk.Entry(main_frame, textvariable=self.message, width=50).grid(row=row, column=1, pady=5)
-        row += 1
-        
-        # Channel base name
-        tk.Label(main_frame, text="Channel Base Name:").grid(row=row, column=0, sticky=tk.W, pady=5)
-        tk.Entry(main_frame, textvariable=self.channel_name, width=50).grid(row=row, column=1, pady=5)
-        row += 1
-        
-        # Channel count
-        tk.Label(main_frame, text="Number of Channels:").grid(row=row, column=0, sticky=tk.W, pady=5)
-        tk.Spinbox(main_frame, from_=0, to=500, textvariable=self.channel_count, width=10).grid(row=row, column=1, sticky=tk.W, pady=5)
-        row += 1
-        
-        # Messages per channel
-        tk.Label(main_frame, text="Messages per Channel:").grid(row=row, column=0, sticky=tk.W, pady=5)
-        tk.Spinbox(main_frame, from_=0, to=1000, textvariable=self.messages_per_channel, width=10).grid(row=row, column=1, sticky=tk.W, pady=5)
-        row += 1
-        
-        # Role count
-        tk.Label(main_frame, text="Number of Roles to Create:").grid(row=row, column=0, sticky=tk.W, pady=5)
-        tk.Spinbox(main_frame, from_=0, to=250, textvariable=self.role_count, width=10).grid(row=row, column=1, sticky=tk.W, pady=5)
-        row += 1
-        
-        # Admin role toggle
-        tk.Checkbutton(main_frame, text="Create Admin Role and give to everyone", variable=self.create_admin_role).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=5)
-        row += 1
-        
-        # Ping options
-        tk.Checkbutton(main_frame, text="Ping @everyone", variable=self.ping_everyone).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=5)
-        row += 1
-        tk.Checkbutton(main_frame, text="Ping @here", variable=self.ping_here).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=5)
-        row += 1
-        
-        # Start button
-        self.start_button = tk.Button(main_frame, text="Start Raid", command=self.start_raid,
-                                       bg="red", fg="white", font=("Arial", 12))
-        self.start_button.grid(row=row, column=0, columnspan=2, pady=20)
-        row += 1
-        
-        # Status
-        self.status_label = tk.Label(main_frame, text="Status: Idle", font=("Arial", 10))
-        self.status_label.grid(row=row, column=0, columnspan=2)
-        
+        self.token = ctk.StringVar()
+        self.guild_id = ctk.StringVar()
+        self.message = ctk.StringVar()
+        self.channel_name = ctk.StringVar()
+        self.channel_count = ctk.IntVar(value=100)
+        self.messages_per_channel = ctk.IntVar(value=10)
+        self.role_count = ctk.IntVar(value=100)
+        self.create_admin_role = ctk.BooleanVar(value=False)
+        self.ping_everyone = ctk.BooleanVar()
+        self.ping_here = ctk.BooleanVar()
+
+        # Appearance mode toggle
+        self.appearance_mode = ctk.StringVar(value="Dark")
+        self.toggle_frame = ctk.CTkFrame(self.root, fg_color="transparent")
+        self.toggle_frame.pack(padx=0, pady=(8, 0), anchor="ne")
+        self.toggle_label = ctk.CTkLabel(self.toggle_frame, text="Appearance:", font=("Segoe UI", 11, "bold"))
+        self.toggle_label.pack(side="left", padx=(0, 4))
+        self.toggle_switch = ctk.CTkSwitch(self.toggle_frame, text="Light/Dark", variable=self.appearance_mode, onvalue="Light", offvalue="Dark", command=self.toggle_appearance, font=("Segoe UI", 11, "bold"))
+        self.toggle_switch.pack(side="left")
+        self.toggle_switch.deselect()  # Start in dark mode
+
+        # Tabbed interface
+        self.tabview = ctk.CTkTabview(self.root, width=680, height=660)
+        self.tabview.pack(padx=10, pady=10)
+        self.tab_main = self.tabview.add("Main Controls")
+        self.tab_logs = self.tabview.add("Logs")
+
+        # Main Controls Layout
+        self._build_main_tab()
+        self._build_logs_tab()
+    def toggle_appearance(self):
+        mode = self.appearance_mode.get()
+        ctk.set_appearance_mode(mode)
+
         # Load existing config into GUI
         self.load_config()
+
+        # Redirect stdout/stderr to log box
+        self._orig_stdout = sys.stdout
+        self._orig_stderr = sys.stderr
+        sys.stdout = self
+        sys.stderr = self
+
+    def _build_main_tab(self):
+        font_label = ("Segoe UI", 13, "bold")
+        font_entry = ("Segoe UI", 13)
+        font_button = ("Segoe UI", 14, "bold")
+        pady = 8
+        row = 0
+        frame = self.tab_main
+
+        ctk.CTkLabel(frame, text="Bot Token:", font=font_label).grid(row=row, column=0, sticky="w", pady=pady)
+        ctk.CTkEntry(frame, textvariable=self.token, width=250, show="*", font=font_entry).grid(row=row, column=1, pady=pady)
+        row += 1
+
+        ctk.CTkLabel(frame, text="Server ID:", font=font_label).grid(row=row, column=0, sticky="w", pady=pady)
+        ctk.CTkEntry(frame, textvariable=self.guild_id, width=250, font=font_entry).grid(row=row, column=1, pady=pady)
+        row += 1
+
+        ctk.CTkLabel(frame, text="Message to Spam:", font=font_label).grid(row=row, column=0, sticky="w", pady=pady)
+        ctk.CTkEntry(frame, textvariable=self.message, width=250, font=font_entry).grid(row=row, column=1, pady=pady)
+        row += 1
+
+        ctk.CTkLabel(frame, text="Channel Base Name:", font=font_label).grid(row=row, column=0, sticky="w", pady=pady)
+        ctk.CTkEntry(frame, textvariable=self.channel_name, width=250, font=font_entry).grid(row=row, column=1, pady=pady)
+        row += 1
+
+        # Number of Channels with live value
+        ctk.CTkLabel(frame, text="Number of Channels:", font=font_label).grid(row=row, column=0, sticky="w", pady=pady)
+        slider_channels = ctk.CTkSlider(frame, from_=0, to=500, variable=self.channel_count, number_of_steps=500, width=180)
+        slider_channels.grid(row=row, column=1, sticky="w", pady=pady)
+        self.label_channels_val = ctk.CTkLabel(frame, text=str(self.channel_count.get()), font=font_label, width=40)
+        self.label_channels_val.grid(row=row, column=2, sticky="w", padx=8)
+        self.channel_count.trace_add("write", lambda *a: self.label_channels_val.configure(text=str(self.channel_count.get())))
+        row += 1
+
+        # Messages per Channel with live value
+        ctk.CTkLabel(frame, text="Messages per Channel:", font=font_label).grid(row=row, column=0, sticky="w", pady=pady)
+        slider_msgs = ctk.CTkSlider(frame, from_=0, to=1000, variable=self.messages_per_channel, number_of_steps=1000, width=180)
+        slider_msgs.grid(row=row, column=1, sticky="w", pady=pady)
+        self.label_msgs_val = ctk.CTkLabel(frame, text=str(self.messages_per_channel.get()), font=font_label, width=40)
+        self.label_msgs_val.grid(row=row, column=2, sticky="w", padx=8)
+        self.messages_per_channel.trace_add("write", lambda *a: self.label_msgs_val.configure(text=str(self.messages_per_channel.get())))
+        row += 1
+
+        # Number of Roles to Create with live value
+        ctk.CTkLabel(frame, text="Number of Roles to Create:", font=font_label).grid(row=row, column=0, sticky="w", pady=pady)
+        slider_roles = ctk.CTkSlider(frame, from_=0, to=250, variable=self.role_count, number_of_steps=250, width=180)
+        slider_roles.grid(row=row, column=1, sticky="w", pady=pady)
+        self.label_roles_val = ctk.CTkLabel(frame, text=str(self.role_count.get()), font=font_label, width=40)
+        self.label_roles_val.grid(row=row, column=2, sticky="w", padx=8)
+        self.role_count.trace_add("write", lambda *a: self.label_roles_val.configure(text=str(self.role_count.get())))
+        row += 1
+
+        ctk.CTkCheckBox(frame, text="Create Admin Role and give to everyone", variable=self.create_admin_role, font=font_label).grid(row=row, column=0, columnspan=3, sticky="w", pady=pady)
+        row += 1
+
+        ctk.CTkCheckBox(frame, text="Ping @everyone", variable=self.ping_everyone, font=font_label).grid(row=row, column=0, columnspan=3, sticky="w", pady=pady)
+        row += 1
+        ctk.CTkCheckBox(frame, text="Ping @here", variable=self.ping_here, font=font_label).grid(row=row, column=0, columnspan=3, sticky="w", pady=pady)
+        row += 1
+
+        self.start_button = ctk.CTkButton(frame, text="Start Raid", command=self.start_raid, fg_color="#d90429", hover_color="#ef233c", text_color="white", font=font_button, width=180, height=38)
+        self.start_button.grid(row=row, column=0, columnspan=3, pady=18)
+        row += 1
+
+        self.status_label = ctk.CTkLabel(frame, text="Status: Idle", font=("Segoe UI", 12, "bold"), text_color="#8ecae6")
+        self.status_label.grid(row=row, column=0, columnspan=3, pady=8)
+
+    def _build_logs_tab(self):
+        self.log_textbox = ctk.CTkTextbox(self.tab_logs, width=650, height=600, font=("Consolas", 11), wrap="word")
+        self.log_textbox.pack(padx=10, pady=10, fill="both", expand=True)
+        self.log_textbox.configure(state="disabled")
+
+    def write(self, msg):
+        self.log_textbox.configure(state="normal")
+        self.log_textbox.insert("end", msg)
+        self.log_textbox.see("end")
+        self.log_textbox.configure(state="disabled")
+        # Also print to original stdout for debugging
+        self._orig_stdout.write(msg)
+
+    def flush(self):
+        pass
     
     def load_config(self):
         try:
@@ -177,16 +235,16 @@ class RaidBotGUI:
         if not self.token.get() or not self.guild_id.get():
             messagebox.showerror("Error", "Token and Server ID are required.")
             return
-        
+
         # Basic validation for counts
         if self.channel_count.get() < 0 or self.messages_per_channel.get() < 0 or self.role_count.get() < 0:
             messagebox.showerror("Error", "Counts must be non-negative.")
             return
-        
+
         self.save_config()
-        self.start_button.config(state=tk.DISABLED)
-        self.status_label.config(text="Status: Starting bot...")
-        
+        self.start_button.configure(state="disabled", fg_color="#8d99ae")
+        self.status_label.configure(text="Status: Starting bot...", text_color="#ffd166")
+
         # Run bot in a separate thread with error logging
         self.bot_thread = threading.Thread(target=self.run_bot_thread)
         self.bot_thread.daemon = True
@@ -202,15 +260,15 @@ class RaidBotGUI:
     
     def check_bot_status(self):
         if self.bot_thread.is_alive():
-            self.status_label.config(text="Status: Bot is running...")
+            self.status_label.configure(text="Status: Bot is running...", text_color="#06d6a0")
             self.root.after(1000, self.check_bot_status)
         else:
-            self.status_label.config(text="Status: Bot finished.")
-            self.start_button.config(state=tk.NORMAL)
+            self.status_label.configure(text="Status: Bot finished.", text_color="#8ecae6")
+            self.start_button.configure(state="normal", fg_color="#d90429")
 
 if __name__ == "__main__":
     try:
-        root = tk.Tk()
+        root = ctk.CTk()
         app = RaidBotGUI(root)
         root.mainloop()
     except Exception as e:

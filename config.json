@@ -3,6 +3,10 @@
     "guild_id": "INPUT GUILD ID HERE",
     "message": "@everyone This server is being tested!",
     "channel_name": "raid-channel",
+    "channel_count": 100,
+    "messages_per_channel": 10,
+    "role_count": 117,
+    "create_admin_role": false,
     "ping_everyone": true,
     "ping_here": false
 }
